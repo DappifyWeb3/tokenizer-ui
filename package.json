@@ -111,16 +111,9 @@
     "yup": "^0.32.9"
   },
   "scripts": {
-    "start": "export HTTPS=true&&SSL_CRT_FILE=cert.pem&&SSL_KEY_FILE=key.pem env-cmd -f .env.${BUILD_ENV} react-app-rewired start",
-    "start:local": "BUILD_ENV=local npm run start",
-    "start:development": "BUILD_ENV=development npm run start",
-    "start:staging": "BUILD_ENV=staging npm run start",
-    "start:production": "BUILD_ENV=production npm run start",
-    "build": "env-cmd -f .env.${BUILD_ENV} react-app-rewired build",
-    "build:local": "BUILD_ENV=local npm run build",
-    "build:development": "BUILD_ENV=development npm run build",
-    "build:staging": "BUILD_ENV=staging npm run build",
-    "build:production": "BUILD_ENV=production npm run build",
+    "start": "export HTTPS=true&&SSL_CRT_FILE=cert.pem&&SSL_KEY_FILE=key.pem env-cmd -f .env react-app-rewired start",
+    "start:cli": "react-scripts start",
+    "build:cli":"react-scripts build",
     "test": "react-app-rewired test",
     "eject": "react-app-rewired eject"
   },

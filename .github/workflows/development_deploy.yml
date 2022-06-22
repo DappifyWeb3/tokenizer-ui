@@ -1,0 +1,57 @@
+name: Tokenizer Deploy Development
+on:
+  push:
+    branches:
+      - development
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 16
+      - name: Caching
+        id: react-cache-build
+        uses: actions/cache@v2
+        with:
+          path: |
+            public
+            .cache
+            node_modules
+          key: ${{ runner.os }}-react-tokenizer-dappify-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-react-tokenizer-dappify-
+      - name: Install dependencies
+        run: yarn install
+      - name: Build
+        env: 
+          REACT_APP_MORALIS_APP_ID: ${{ secrets.MORALIS_APP_ID_DEV }}
+          REACT_APP_MORALIS_SERVER_URL: ${{ secrets.MORALIS_SERVER_URL_DEV }}
+          REACT_APP_MORALIS_API_KEY: ${{ secrets.MORALIS_API_KEY }}
+          REACT_APP_MORALIS_SPEEDY_NODES_KEY: ${{ secrets.MORALIS_API_KEY }}
+          REACT_APP_PINATA_KEY: ${{ secrets.PINATA_API_KEY }}
+          REACT_APP_PINATA_SECRET: ${{ secrets.PINATA_API_SECRET }}
+          REACT_APP_ALCHEMY_KEY: ${{ secrets.ALCHEMY_KEY }}
+          REACT_APP_INFURA_KEY: ${{ secrets.INFURA_API_KEY }}
+          REACT_APP_HOST_ENV: dev
+          REACT_APP_TEMPLATE_NAME: tokenizer
+          CI: false
+          NODE_OPTIONS: "--max-old-space-size=8192"
+        run: yarn build:cli
+      - name: Set AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Deploy to S3
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          PROJECT_NAME: tokenizer
+        run: aws s3 sync build s3://dev.dappify.com/$PROJECT_NAME/ --region $AWS_REGION
+      - name: Invalidate Cloudfront Cache
+        env:
+          CF_DIST: ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID_DEV }}
+        run: aws cloudfront create-invalidation --distribution-id $CF_DIST --paths '/*'
