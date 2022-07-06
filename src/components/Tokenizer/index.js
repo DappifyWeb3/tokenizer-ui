@@ -87,7 +87,8 @@ const Tokenizer = ({ t,  onMint }) => {
     const [minter, setMinter] = useState(minterProps);
     const [value, setValue] = useState(0);
     const [items, setItems] = useState([]);
-    const [minting, setMinting] = useState({ data: null, loading: false, error: null });
+    const [minting, setMinting] = useState({ data: null, loading: false, warning: null, error: null });
+    // const [continueMinting, setContinueMinting] = useState(false);
     const [showWalletDialog, setShowWalletDialog] = useState(false);
     const [options, setOptions] = useState([]);
     const defaultChainId = options.find((opt) => opt.key === 'chainId' )?.value || configuration?.chainId;
@@ -156,118 +157,168 @@ const Tokenizer = ({ t,  onMint }) => {
         setShowWalletDialog(true);
     }
 
-    const handleSubmit = async () => {
+    const checkIfNecessaryFieldsForMintingFilled = () => {
 
-        // await Provider.switchNetwork(minter.chainId);
+        let nothingMissed = true;
 
-        let tokenId;
-        let contractAddress;
-        setLoading(true);
-        const pref = getProviderPreference();
-        const web3Provider = await Provider.enableWeb3(pref);
-        // await switchToChain(constants.NETWORKS[minter.chainId], web3Provider.provider);
-        setMinting({ data: null, loading: true, error: null })
+        const properImage = minter.metadata.image && minter.metadata.image instanceof File;
+        const properAudio = minter.metadata.youtube_url && minter.metadata.youtube_url instanceof File;
+        const properVideo = minter.metadata.animation_url && minter.metadata.animation_url instanceof File;
 
-        try {
-            // Append metadata extra fields
-            minter.additionalFields.forEach((field) => minter.metadata[[field.key]] = field.value );
+        let missingData = [];
 
-            // Append attributes
-            minter.metadata.attributes = minter.metadataAttributes;
+        if (!minter.metadata.name) {
+            missingData.push("Name");
+            nothingMissed = false;
+        }
+        if (!minter.metadata.description) {
+            missingData.push("Description");
+            nothingMissed = false;
+        }
+        if (!properImage && !properAudio && !properVideo) {
+            missingData.push("Image, Audio or Video File");
+            nothingMissed = false;
+        }
 
-            // Append image file
-            if (minter.metadata.image && minter.metadata.image instanceof File) {
-                Logger.debug('Uploading image file');
-                const imageFile = new Provider.File('image', minter.metadata.image);
-                await imageFile.saveIPFS();
-                const imageFileUrl = imageFile.ipfs();
-                minter.metadata.image = imageFileUrl;
-            }
-            // Append audio file
-            if (minter.metadata.youtube_url && minter.metadata.youtube_url instanceof File) {
-                Logger.debug('Uploading video file');
-                const videoFile = new Provider.File('youtube_url', minter.metadata.youtube_url);
-                await videoFile.saveIPFS();
-                const videoFileUrl = videoFile.ipfs();
-                minter.metadata.youtube_url = videoFileUrl;
-            }
-            // Append video file
-            if (minter.metadata.animation_url && minter.metadata.animation_url instanceof File) {
-                Logger.debug('Uploading audio file');
-                const audioFile = new Provider.File('animation_url', minter.metadata.animation_url);
-                await audioFile.saveIPFS();
-                const audioFileUrl = audioFile.ipfs();
-                minter.metadata.animation_url = audioFileUrl;
-            }
-
-            // Generate metadata and save to IPFS
-            const metadataFile = new Provider.File('metadata.json', {
-              base64: Buffer.from(JSON.stringify(minter.metadata)).toString("base64"),
-            });
-            await metadataFile.saveIPFS();
-            const metadataFileUrl = metadataFile.ipfs();
-            
-            let response, hash, status, contract, transaction;
-
-            if (!minter.lazy) {
-                // Mint from blockchain
-                const signer = web3Provider.getSigner();
-                const userAddress = user.get('ethAddress');
-                contractAddress = minter.collection[minter.type];
-                const royaltyValue = minter.royalties*100;
-                if (minter.type === 'ERC721') {
-                    contract = new ethers.Contract(contractAddress, ERC721DappifyV1.abi, signer);
-                    transaction = await contract.mint(userAddress, userAddress, royaltyValue, metadataFileUrl);
-                    Logger.debug(`Minting ERC721 contract: ${contractAddress}, owner: ${userAddress}, recipient:${userAddress}, royalties: ${royaltyValue}, metadata: ${metadataFileUrl}`);
-                } else if (minter.type === 'ERC1155') {
-                    contract = new ethers.Contract(contractAddress, ERC1155DappifyV1.abi, signer);
-                    transaction = await contract.mint(userAddress, userAddress, royaltyValue, metadataFileUrl, minter.amount);
-                    Logger.debug(`Minting ERC721 contract: ${contractAddress}, owner: ${userAddress}, recipient:${userAddress}, royalties: ${royaltyValue}, metadata: ${metadataFileUrl}, amount: ${minter.amount}`);
-                } else {
-                    throw new Error('Unsupported type');
-                }
-
-                const tx = await transaction.wait();
-                tokenId = tx.events[0].topics[3];
-                hash = tx.transactionHash;
-                status = 'Minted';
-                response = `${constants.NETWORKS[minter.chainId].blockExplorerUrls[0]}/tx/${hash}`;
-            } else {
-                // Lazy mint
-                status = 'LazyMinted';
-            }
-            
-            await new Transaction({
-                // Creating new
-                transactionHash: hash,
-                contract: contractAddress,
-                uri: metadataFileUrl,
-                tokenId: tokenId,
-                metadata: minter.metadata,
-                status: status,
-                symbol: minter.collectionMetadata.symbol,
-                name: minter.metadata.name,
-                chainId: minter.chainId,
-                event: minter,
-                category: 'NFT',
-                type: minter.type,
-                quantity: parseInt(minter.amount)
-            }).save();
-    
-            setMinting({
-                data: response,
-                loading: false,
-                error: null
-            })
-        } catch (err) {
-            console.error(err);
+        if (nothingMissed){
+            // setContinueMinting(true);
+            return true;
+        } else {
             setMinting({
                 data: null,
                 loading: false,
-                error: err.message
-            })
-        } finally {
-            setLoading(false);
+                warning: missingData,
+                error: null
+            });
+            return false;
+        }
+    }
+
+
+    const handleSubmit = async (continueMinting) => {
+
+        // await Provider.switchNetwork(minter.chainId);
+
+        if (continueMinting){
+            let tokenId;
+            let contractAddress;
+            setLoading(true);
+            const pref = getProviderPreference();
+            const web3Provider = await Provider.enableWeb3(pref);
+            // await switchToChain(constants.NETWORKS[minter.chainId], web3Provider.provider);
+            setMinting({ data: null, loading: true, warning: null, error: null })
+
+            try {
+                // Append metadata extra fields
+                minter.additionalFields.forEach((field) => minter.metadata[[field.key]] = field.value);
+
+                // Append attributes
+                minter.metadata.attributes = minter.metadataAttributes;
+
+                let properImage = minter.metadata.image && minter.metadata.image instanceof File;
+                let properAudio = minter.metadata.youtube_url && minter.metadata.youtube_url instanceof File;
+                let properVideo = minter.metadata.animation_url && minter.metadata.animation_url instanceof File;
+
+                // Append image file
+                if (properImage) {
+                    Logger.debug('Uploading image file');
+                    const imageFile = new Provider.File('image', minter.metadata.image);
+                    await imageFile.saveIPFS();
+                    const imageFileUrl = imageFile.ipfs();
+                    minter.metadata.image = imageFileUrl;
+                }
+                // Append audio file
+                if (properAudio) {
+                    Logger.debug('Uploading video file');
+                    const videoFile = new Provider.File('youtube_url', minter.metadata.youtube_url);
+                    await videoFile.saveIPFS();
+                    const videoFileUrl = videoFile.ipfs();
+                    minter.metadata.youtube_url = videoFileUrl;
+                }
+                // Append video file
+                if (properVideo) {
+                    Logger.debug('Uploading audio file');
+                    const audioFile = new Provider.File('animation_url', minter.metadata.animation_url);
+                    await audioFile.saveIPFS();
+                    const audioFileUrl = audioFile.ipfs();
+                    minter.metadata.animation_url = audioFileUrl;
+                }
+
+                // Question: I don't see how minter.additionalFields is uploaded to IPFS and part of the NFT metadata
+
+                // Generate metadata and save to IPFS
+                const metadataFile = new Provider.File('metadata.json', {
+                base64: Buffer.from(JSON.stringify(minter.metadata)).toString("base64"),
+                });
+                await metadataFile.saveIPFS();
+                const metadataFileUrl = metadataFile.ipfs();
+                
+                let response, hash, status, contract, transaction;
+
+                if (!minter.lazy) {
+                    // Mint from blockchain
+                    const signer = web3Provider.getSigner();
+                    const userAddress = user.get('ethAddress');
+                    contractAddress = minter.collection[minter.type];
+                    const royaltyValue = minter.royalties*100;
+                    if (minter.type === 'ERC721') {
+                        contract = new ethers.Contract(contractAddress, ERC721DappifyV1.abi, signer);
+                        transaction = await contract.mint(userAddress, userAddress, royaltyValue, metadataFileUrl);
+                        Logger.debug(`Minting ERC721 contract: ${contractAddress}, owner: ${userAddress}, recipient:${userAddress}, royalties: ${royaltyValue}, metadata: ${metadataFileUrl}`);
+                    } else if (minter.type === 'ERC1155') {
+                        contract = new ethers.Contract(contractAddress, ERC1155DappifyV1.abi, signer);
+                        transaction = await contract.mint(userAddress, userAddress, royaltyValue, metadataFileUrl, minter.amount);
+                        Logger.debug(`Minting ERC721 contract: ${contractAddress}, owner: ${userAddress}, recipient:${userAddress}, royalties: ${royaltyValue}, metadata: ${metadataFileUrl}, amount: ${minter.amount}`);
+                    } else {
+                        throw new Error('Unsupported type');
+                    }
+
+                    const tx = await transaction.wait();
+                    console.log(tx.events[0]); // Cannot read properties of undefined (reading 'topics')
+                    tokenId = tx.events[0].topics[3];
+                    hash = tx.transactionHash;
+                    status = 'Minted';
+                    response = `${constants.NETWORKS[minter.chainId].blockExplorerUrls[0]}/tx/${hash}`;
+                } else {
+                    // Lazy mint
+                    status = 'LazyMinted';
+                }
+                
+                await new Transaction({
+                    // Creating new
+                    transactionHash: hash,
+                    contract: contractAddress,
+                    uri: metadataFileUrl,
+                    tokenId: tokenId,
+                    metadata: minter.metadata,
+                    status: status,
+                    symbol: minter.collectionMetadata.symbol,
+                    name: minter.metadata.name,
+                    chainId: minter.chainId,
+                    event: minter,
+                    category: 'NFT',
+                    type: minter.type,
+                    quantity: parseInt(minter.amount)
+                }).save();
+        
+                setMinting({
+                    data: response,
+                    loading: false,
+                    warning: null,
+                    error: null
+                })
+            } catch (err) {
+                console.error(err);
+                setMinting({
+                    data: null,
+                    loading: false,
+                    warning: null,
+                    error: err.message
+                })
+            } finally {
+                setLoading(false);
+                // setContinueMinting(false);
+            }
         }
     }
 
@@ -334,6 +385,37 @@ const Tokenizer = ({ t,  onMint }) => {
                                 loadUserCollections();
                             }} />
 
+                            {/* Add a warning before minting to let users know primary attributes are not set (title, description, image) */}
+
+                            {minting.warning && (
+                                <Grid item xs={12}>
+                                    <Alert
+                                        severity="warning"
+                                        action={
+                                            <Button
+                                                color="inherit"
+                                                size="large"
+                                                onClick={() => {
+                                                    // setContinueMinting(true);
+                                                    handleSubmit(true);}}>
+                                                Continue Anyway
+                                            </Button>}>
+                                        The following properties are missing 
+                                        <ul>
+                                            {minting.warning.map((el)=><li>{el}</li>)}
+                                        </ul>
+                                    </Alert>
+                                    {/* <Grid container>
+                                        <Button onClick={() => setContinueMinting(false)}>Abort Minting</Button>
+                                        <Button onClick={() => {
+                                            setContinueMinting(true);
+                                            handleSubmit();
+                                            }}>
+                                            Continue Minting</Button>
+                                    </Grid> */}
+                                </Grid>
+                            )}
+
                             {minting.error && (
                                 <Grid item xs={12}>
                                     <Alert sx={{ wordBreak: 'break-word' }} severity="error">{minting.error}</Alert>
@@ -352,7 +434,11 @@ const Tokenizer = ({ t,  onMint }) => {
                             )}
                             {isAuthenticated && (
                                 <Grid item xs={12}>
-                                    <Button  id="mint-tokenizer-btn"  disabled={loading} variant="contained" size="large" fullWidth onClick={handleSubmit}>
+                                    <Button id="mint-tokenizer-btn" disabled={loading} variant="contained" size="large" fullWidth
+                                        onClick={() => {
+                                            let continueMinting = checkIfNecessaryFieldsForMintingFilled();
+                                            handleSubmit(continueMinting);
+                                        }}>
                                         { !loading ? 
                                             t('Create your NFT') :
                                             t('Please confirm the transaction from your wallet and wait...')
