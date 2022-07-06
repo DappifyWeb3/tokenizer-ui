@@ -36,6 +36,7 @@
     "date-fns": "^2.21.1",
     "draft-js": "^0.11.7",
     "emoji-picker-react": "^3.4.4",
+    "env-cmd": "^10.1.0",
     "esbuild-wasm": "^0.14.13",
     "ethers": "^5.6.2",
     "firebase": "^8.3.1",
