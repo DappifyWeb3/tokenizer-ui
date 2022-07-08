@@ -324,14 +324,18 @@ const Tokenizer = ({ t,  onMint }) => {
 
     const getInitialDropzoneFiles = () => {
         const list = [];
+        // return [];
         if (minter.metadata.image) list.push(minter.metadata.image);
         if (minter.metadata.animation_url) list.push(minter.metadata.animation_url);
         if (minter.metadata.youtube_url) list.push(minter.metadata.youtube_url);
+        console.log(list);
         return list;
     }
 
     const handleTokenImageChange = (files) => {
         // setFiles(files)
+        console.log("start");
+        console.log(files);
         files.forEach((file) => {
             const newMinter = {...minter};
             if (file.type.startsWith('image')) {
@@ -344,7 +348,10 @@ const Tokenizer = ({ t,  onMint }) => {
                 console.log('Not supported');
             }
             setMinter(newMinter);
+            console.log(newMinter);
         });
+        console.log("end");
+        console.log(files);
     }
     console.log(defaultChainId);
 

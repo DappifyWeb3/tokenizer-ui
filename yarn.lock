@@ -13537,10 +13537,10 @@
     "file-selector" "^0.1.12"
     "prop-types" "^15.7.2"
 
-"react-dropzone@^14.2.1":
-  "integrity" "sha512-jzX6wDtAjlfwZ+Fbg+G17EszWUkQVxhMTWMfAC9qSUq7II2pKglHA8aarbFKl0mLpRPDaNUcy+HD/Sf4gkf76Q=="
-  "resolved" "https://registry.npmjs.org/react-dropzone/-/react-dropzone-14.2.1.tgz"
-  "version" "14.2.1"
+"react-dropzone@^14.2.2":
+  "integrity" "sha512-5oyGN/B5rNhop2ggUnxztXBQ6q6zii+OMEftPzsxAR2hhpVWz0nAV+3Ktxo2h5bZzdcCKrpd8bfWAVsveIBM+w=="
+  "resolved" "https://registry.npmjs.org/react-dropzone/-/react-dropzone-14.2.2.tgz"
+  "version" "14.2.2"
   dependencies:
     "attr-accept" "^2.2.2"
     "file-selector" "^0.6.0"

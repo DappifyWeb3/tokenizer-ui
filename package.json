@@ -74,7 +74,7 @@
     "react-dom": "^18.1.0",
     "react-draft-wysiwyg": "^1.14.6",
     "react-draggable": "^4.4.3",
-    "react-dropzone": "^14.2.1",
+    "react-dropzone": "^14.2.2",
     "react-google-recaptcha": "^2.1.0",
     "react-hook-form": "^6.15.5",
     "react-i18next": "^11.17.0",
