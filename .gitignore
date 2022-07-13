@@ -4,3 +4,4 @@ build
 .env.*
 firebase*
 *pem
+package-lock.json
