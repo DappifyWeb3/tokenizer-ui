@@ -73,6 +73,7 @@ const minterProps = {
     },
     additionalFields: [],
     metadataAttributes: [],
+    collection: '',
     collectionMetadata: {
         name: '',
         description: '',
@@ -85,10 +86,11 @@ const minterProps = {
 const Tokenizer = ({ t,  onMint }) => {
     const { Provider, isAuthenticated, logout, user, configuration, isRightNetwork } = useContext(DappifyContext);
     const [minter, setMinter] = useState(minterProps);
+    const [uploadedFile, setUploadedFile] = useState("");
     const [value, setValue] = useState(0);
     const [items, setItems] = useState([]);
     const [minting, setMinting] = useState({ data: null, loading: false, warning: null, error: null });
-    // const [continueMinting, setContinueMinting] = useState(false);
+    const [jsonWarning, setJsonWarning] = useState("");
     const [showWalletDialog, setShowWalletDialog] = useState(false);
     const [options, setOptions] = useState([]);
     const defaultChainId = options.find((opt) => opt.key === 'chainId' )?.value || configuration?.chainId;
@@ -161,9 +163,9 @@ const Tokenizer = ({ t,  onMint }) => {
 
         let nothingMissed = true;
 
-        const properImage = minter.metadata.image && minter.metadata.image instanceof File;
-        const properAudio = minter.metadata.youtube_url && minter.metadata.youtube_url instanceof File;
-        const properVideo = minter.metadata.animation_url && minter.metadata.animation_url instanceof File;
+        let properImage = minter.metadata.image && uploadedFile instanceof File;
+        let properAudio = minter.metadata.youtube_url //&& minter.metadata.youtube_url instanceof File;
+        let properVideo = minter.metadata.animation_url //&& minter.metadata.animation_url instanceof File;
 
         let missingData = [];
 
@@ -215,14 +217,14 @@ const Tokenizer = ({ t,  onMint }) => {
                 // Append attributes
                 minter.metadata.attributes = minter.metadataAttributes;
 
-                let properImage = minter.metadata.image && minter.metadata.image instanceof File;
+                let properImage = minter.metadata.image && uploadedFile instanceof File;
                 let properAudio = minter.metadata.youtube_url && minter.metadata.youtube_url instanceof File;
                 let properVideo = minter.metadata.animation_url && minter.metadata.animation_url instanceof File;
-
+                
                 // Append image file
                 if (properImage) {
                     Logger.debug('Uploading image file');
-                    const imageFile = new Provider.File('image', minter.metadata.image);
+                    const imageFile = new Provider.File('image', uploadedFile);
                     await imageFile.saveIPFS();
                     const imageFileUrl = imageFile.ipfs();
                     minter.metadata.image = imageFileUrl;
@@ -243,8 +245,6 @@ const Tokenizer = ({ t,  onMint }) => {
                     const audioFileUrl = audioFile.ipfs();
                     minter.metadata.animation_url = audioFileUrl;
                 }
-
-                // Question: I don't see how minter.additionalFields is uploaded to IPFS and part of the NFT metadata
 
                 // Generate metadata and save to IPFS
                 const metadataFile = new Provider.File('metadata.json', {
@@ -274,7 +274,7 @@ const Tokenizer = ({ t,  onMint }) => {
                     }
 
                     const tx = await transaction.wait();
-                    console.log(tx.events[0]); // Cannot read properties of undefined (reading 'topics')
+                    console.log(tx.events[0]);
                     tokenId = tx.events[0].topics[3];
                     hash = tx.transactionHash;
                     status = 'Minted';
@@ -306,7 +306,7 @@ const Tokenizer = ({ t,  onMint }) => {
                     loading: false,
                     warning: null,
                     error: null
-                })
+                });
             } catch (err) {
                 console.error(err);
                 setMinting({
@@ -314,46 +314,45 @@ const Tokenizer = ({ t,  onMint }) => {
                     loading: false,
                     warning: null,
                     error: err.message
-                })
+                });
             } finally {
                 setLoading(false);
-                // setContinueMinting(false);
             }
         }
     }
 
     const getInitialDropzoneFiles = () => {
         const list = [];
-        // return [];
-        if (minter.metadata.image) list.push(minter.metadata.image);
+        if (minter.metadata.image) list.push(uploadedFile);
         if (minter.metadata.animation_url) list.push(minter.metadata.animation_url);
         if (minter.metadata.youtube_url) list.push(minter.metadata.youtube_url);
-        console.log(list);
         return list;
     }
 
     const handleTokenImageChange = (files) => {
-        // setFiles(files)
-        console.log("start");
-        console.log(files);
+        let upload;
         files.forEach((file) => {
             const newMinter = {...minter};
             if (file.type.startsWith('image')) {
-                newMinter.metadata.image = file;
+                newMinter.metadata.image = file.name;
+                upload = 'Image uploaded.';
+                setUploadedFile(file);
             } else if (file.type.startsWith('audio')) {
                 newMinter.metadata.animation_url = file;
+                upload = 'Audio uploaded.';
             } else if (file.type.startsWith('video')) {
                 newMinter.metadata.youtube_url = file;
+                upload = 'Video uploaded.';
             } else {
                 console.log('Not supported');
             }
             setMinter(newMinter);
-            console.log(newMinter);
         });
-        console.log("end");
-        console.log(files);
-    }
-    console.log(defaultChainId);
+        if (files){
+            upload += ' Please do not modify the respective field inside the json metadata.'
+            setJsonWarning(upload)
+            }
+        }
 
 
     const authContent = (
@@ -404,7 +403,9 @@ const Tokenizer = ({ t,  onMint }) => {
                                                 size="large"
                                                 onClick={() => {
                                                     // setContinueMinting(true);
-                                                    handleSubmit(true);}}>
+                                                    handleSubmit(true);}
+                                                    }
+                                            >
                                                 Continue Anyway
                                             </Button>}>
                                         The following properties are missing 
@@ -412,14 +413,6 @@ const Tokenizer = ({ t,  onMint }) => {
                                             {minting.warning.map((el)=><li>{el}</li>)}
                                         </ul>
                                     </Alert>
-                                    {/* <Grid container>
-                                        <Button onClick={() => setContinueMinting(false)}>Abort Minting</Button>
-                                        <Button onClick={() => {
-                                            setContinueMinting(true);
-                                            handleSubmit();
-                                            }}>
-                                            Continue Minting</Button>
-                                    </Grid> */}
                                 </Grid>
                             )}
 
@@ -468,7 +461,7 @@ const Tokenizer = ({ t,  onMint }) => {
                             <Preview />
                 </Grid> */}
                         <Grid item xs={12}>
-                            <Editor t={t}/>
+                            <Editor warning={jsonWarning} t={t}/>
                         </Grid>
                     </Grid>
                 </TabPanel>

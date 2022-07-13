@@ -33,7 +33,7 @@ const Collections = ({t, handleAuth, collections, onClose, hidden=false }) => {
         if (!isEmpty(config)) {
             console.log(config.contract);
             const defaultCollection = config?.contract[minter.chainId];
-            if (isEmpty(minter.collection) && !isEmpty(defaultCollection)) {
+            if (!isEmpty(defaultCollection)){
                 setDefaultCollection();
             }
         }
